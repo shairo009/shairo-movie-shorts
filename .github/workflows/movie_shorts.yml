@@ -11,7 +11,7 @@ permissions:
 jobs:
   movie-shorts:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,10 +30,6 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Install Playwright Browsers
-        run: |
-          playwright install chromium --with-deps
 
       - name: Load Credentials from Secrets
         env:
@@ -58,11 +54,15 @@ jobs:
           path: downloads/final_video.mp4
           retention-days: 3
 
+      - name: Cleanup Movie Downloads
+        if: always()
+        run: rm -rf downloads/movies/ || true
+
       - name: Commit History Update
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add scripts_history.txt 2>/dev/null || true
+          git add scripts_history.txt archive_history.txt 2>/dev/null || true
           git commit -m "Update history [skip ci]" --allow-empty 2>/dev/null || true
           git push origin main 2>/dev/null || true
 

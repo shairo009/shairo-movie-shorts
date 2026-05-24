@@ -1,18 +1,19 @@
 """
-main.py — Movie Shorts Bot (HTML Edition)
-Zero-touch: script → HTML UI → Playwright record → TTS mux → upload
-No YouTube downloads, no Cobalt, no yt-dlp. Pure HTML animation.
-Runs automatically 4/day via GitHub Actions.
+main.py — Movie Shorts Bot (Public Domain Edition)
+Zero-touch: Archive.org movie → scene clip → text overlay + TTS → upload
+Copyright-free, monetizable, fully automated.
 """
 import os, sys, argparse
 from script_generator import get_script_and_tts
-from movie_video_maker import make_movie_short
+from archive_downloader import download_archive_movie
+from scene_detector import find_best_clip
+from movie_clip_editor import edit_movie_clip
 from uploader import run_upload
 
 
 def run_movie_shorts_bot(no_upload=False, no_tts=False):
     print("=" * 55)
-    print("  MOVIE SHORTS BOT — HTML EDITION")
+    print("  MOVIE SHORTS BOT — PUBLIC DOMAIN EDITION")
     print("=" * 55)
 
     elevenlabs_key = os.environ.get("ELEVENLABS_API_KEY", "")
@@ -24,24 +25,49 @@ def run_movie_shorts_bot(no_upload=False, no_tts=False):
         print("FAILED: No script available.")
         return False
 
-    # STEP 2: Create video from HTML UI + TTS audio
-    print("\n>>> STEP 2: Creating video via HTML recording...")
+    # STEP 2: Download public domain movie from Archive.org
+    print("\n>>> STEP 2: Downloading movie from Archive.org...")
+    movie_path, title, identifier = download_archive_movie()
+    if not movie_path:
+        print("FAILED: Could not download movie.")
+        return False
+    print(f">>> Movie: {title}")
+
+    # STEP 3: Find best dramatic clip
+    print("\n>>> STEP 3: Finding dramatic scene...")
+    clip_path = find_best_clip(movie_path, clip_duration=35)
+    if not clip_path:
+        print("FAILED: Could not extract clip.")
+        return False
+
+    # Cleanup full movie to save disk space
+    if os.path.exists(movie_path):
+        os.remove(movie_path)
+        print(f">>> Cleaned up full movie file.")
+
+    # STEP 4: Edit clip — color grade + text overlay + TTS
+    print("\n>>> STEP 4: Editing clip...")
     try:
-        output_path, duration = make_movie_short(script, tts_path)
+        output_path, duration = edit_movie_clip(clip_path, tts_path, script)
     except Exception as e:
-        print(f"FAILED: Video creation error: {e}")
+        print(f"FAILED: Edit error: {e}")
         return False
     if not output_path or not os.path.exists(output_path):
         print("FAILED: Final video not generated.")
         return False
 
+    # Cleanup clip
+    if clip_path and os.path.exists(clip_path):
+        os.remove(clip_path)
+
     if no_upload:
         print(f"\nDRY RUN - Video ready: {output_path}")
         return True
 
-    # STEP 3: Upload to YouTube Shorts
-    print("\n>>> STEP 3: Uploading to YouTube Shorts...")
-    upload_ok = run_upload(output_path, f"{script['title']} #shorts #movie #viral", is_short=True)
+    # STEP 5: Upload to YouTube Shorts
+    print("\n>>> STEP 5: Uploading to YouTube Shorts...")
+    tag_str = f"#{script.get('tag', 'movie')}"
+    upload_ok = run_upload(output_path, f"{script['title']} #shorts #movie {tag_str} #classic #cinema", is_short=True)
 
     if upload_ok:
         print("\nPIPELINE COMPLETE!")
