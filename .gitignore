@@ -1,4 +1,3 @@
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,15 +9,11 @@ develop-eggs/
 dist/
 downloads/
 output/
-
-# Secrets & Credentials (CRITICAL)
 client_secret.json
 token.json
 .env
-
-# YouTube History
+scripts_history.txt
+clips_history.txt
 downloads_history.txt
-
-# OS
 .DS_Store
 Thumbs.db

@@ -1,3 +1,7 @@
+"""
+uploader.py — YouTube API v3 upload (unified for NCS + Movie Shorts)
+Supports both regular video and Shorts upload with proper category per mode.
+"""
 import os
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
@@ -6,111 +10,118 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.http import MediaFileUpload
 
-# YouTube Data API upload scope required
 scopes = ["https://www.googleapis.com/auth/youtube.upload"]
 
+
 def get_authenticated_service():
-    """
-    Authenticates the user using client_secret.json and generates/loads token.json
-    for future automated uploads without human intervention.
-    """
+    """Authenticate using client_secret.json and token.json."""
     creds = None
-    # The file token.json stores the user's access and refresh tokens
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', scopes)
-        
-    # If there are no (valid) credentials available, let the user log in.
+    if os.path.exists("token.json"):
+        creds = Credentials.from_authorized_user_file("token.json", scopes)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("Refreshing YouTube access token...")
             creds.refresh(Request())
         else:
-            if not os.path.exists('client_secret.json'):
-                print("Error: client_secret.json file not found! Pls add it to the folder.")
+            if not os.path.exists("client_secret.json"):
+                print("Error: client_secret.json not found!")
                 return None
-                
-            print("No authorization token found. Starting browser login process...")
-            print("Please log in with your NEW YouTube Channel account!")
-            
+
+            print("No token - starting browser login...")
             flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-                'client_secret.json', scopes)
+                "client_secret.json", scopes)
             creds = flow.run_local_server(port=0)
-            
-        # Save the credentials for the next run (And for GitHub actions)
-        with open('token.json', 'w') as token:
+
+        with open("token.json", "w") as token:
             token.write(creds.to_json())
-            print("Successfully saved token.json!")
+            print("Saved token.json!")
 
     return googleapiclient.discovery.build("youtube", "v3", credentials=creds)
 
-def upload_video(youtube, file_path, title, description, tags):
-    """
-    Uploads the video file to YouTube using the authenticated service.
-    """
+
+def upload_video(youtube, file_path, title, description, tags, category_id="10"):
+    """Uploads the video file to YouTube."""
     print(f"Preparing to upload: {file_path}")
-    
+
     body = {
         "snippet": {
-            "title": title[:100],  # Title max characters is 100
+            "title": title[:100],
             "description": description,
             "tags": tags,
-            "categoryId": "10" # 10 = Music Category
+            "categoryId": category_id,
         },
         "status": {
             "privacyStatus": "public",
-            "selfDeclaredMadeForKids": False
-        }
+            "selfDeclaredMadeForKids": False,
+        },
     }
 
     try:
-        # Create and upload the video
         insert_request = youtube.videos().insert(
-            part=",".join(body.keys()),
+            part="snippet,status",
             body=body,
             media_body=MediaFileUpload(file_path, chunksize=-1, resumable=True)
         )
-        
-        print("Uploading to YouTube... This depends on your internet speed.")
+
+        print("Uploading to YouTube...")
         response = insert_request.execute()
-        
-        print(f"\n✅ Upload Successful! Video ID: {response['id']}")
+
+        print(f"\nUpload Successful! Video ID: {response['id']}")
         print(f"Link: https://youtu.be/{response['id']}\n")
         return True
-        
+
     except googleapiclient.errors.HttpError as e:
-        print("A YouTube API error occurred:\n%s" % e.content)
+        print("YouTube API error:\n%s" % e.content)
         return False
 
-def run_upload(video_path="downloads/final_video.mp4", song_title="NCS Track", video_type="long"):
-    """Main function called by our orchestrator"""
+
+def run_upload(video_path="downloads/final_video.mp4", song_title="NCS Track",
+               is_short=False, mode="ncs"):
+    """Main entry point for both NCS and Movie Shorts uploads."""
     if not os.path.exists(video_path):
         print(f"Error: Final video not found at {video_path}")
         return False
-        
+
     youtube = get_authenticated_service()
     if not youtube:
         return False
-        
-    formatted_title = f"{song_title} | Aesthetic Custom Visualizer | No Copyright"
-    if video_type == "short":
-        formatted_title += " #Shorts"
-        
-    desc = f"""Listen to {song_title} - Free to use No Copyright Music 🎵
-    
+
+    if mode == "movie":
+        # Movie Shorts mode
+        formatted_title = song_title
+        if is_short and "#shorts" not in song_title.lower():
+            formatted_title += " #Shorts"
+
+        desc = f"{song_title}\n\nMovie Story Explanation\n\n#movie #shorts #viral #cinematic #story"
+        tags = ["movie", "shorts", "cinematic", "viral", "trending", "movie scene", "story", "explanation"]
+        if is_short:
+            tags.append("Shorts")
+        category_id = "22"  # People & Blogs
+    else:
+        # NCS Music mode
+        formatted_title = f"{song_title} | Aesthetic Custom Visualizer | No Copyright"
+        if is_short:
+            formatted_title += " #Shorts"
+
+        desc = f"""Listen to {song_title} - Free to use No Copyright Music
+
 Autogenerated with a fully open-source custom Python Video Bot!
 - AI generated background upscaled to HD
 - Custom Dynamic Cyberpunk Equalizer (Synced to beat)
 - Fully Automated Pipeline
 
 #NCS #NoCopyrightSounds #AestheticMusic #Lofi #Cyberpunk"""
-    if video_type == "short":
-        desc += " #Shorts #YouTubeShorts"
+        if is_short:
+            desc += " #Shorts #YouTubeShorts"
 
-    tags = ["NCS", "No Copyright Sounds", "Aesthetic", "Music Visualizer", "Cyberpunk", "Free Music"]
-    if video_type == "short":
-        tags.append("Shorts")
+        tags = ["NCS", "No Copyright Sounds", "Aesthetic", "Music Visualizer", "Cyberpunk", "Free Music"]
+        if is_short:
+            tags.append("Shorts")
+        category_id = "10"  # Music
 
-    return upload_video(youtube, video_path, formatted_title, desc, tags)
+    return upload_video(youtube, video_path, formatted_title, desc, tags, category_id=category_id)
+
 
 if __name__ == "__main__":
     run_upload()
