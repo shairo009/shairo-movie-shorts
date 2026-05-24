@@ -46,8 +46,8 @@ jobs:
           TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
-          echo "$CLIENT_SECRET_JSON" | base64 -d > client_secret.json
-          echo "$TOKEN_JSON" | base64 -d > token.json
+          echo "$CLIENT_SECRET_JSON" > client_secret.json
+          echo "$TOKEN_JSON" > token.json
 
       - name: Run Skill Bot
         env:
