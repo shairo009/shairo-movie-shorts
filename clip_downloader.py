@@ -6,8 +6,6 @@ import os, re, json, random, subprocess, requests
 HISTORY_FILE = "clips_history.txt"
 COBALT_INSTANCES = [
     "https://api.cobalt.tools/",
-    "https://cobalt.api.timelessnesses.me/",
-    "https://cobalt.catto.space/",
 ]
 YTDLP_MOBILE_HEADERS = [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
@@ -37,27 +35,29 @@ def pick_youtube_query():
 def download_with_cobalt(url, output_path, mobile_ios=False):
     api_url = random.choice(COBALT_INSTANCES)
     headers = {
+        "Accept": "application/json",
         "Content-Type": "application/json",
         "User-Agent": random.choice(YTDLP_MOBILE_HEADERS) if mobile_ios else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
     }
-    payload = {"url": url, "vQuality": "720", "aFormat": "mp3", "isAudioOnly": False}
-    resp = requests.post(f"{api_url}api/json", json=payload, headers=headers, timeout=30)
+    payload = {"url": url, "videoQuality": "720", "filenameStyle": "basic"}
+    resp = requests.post(f"{api_url}", json=payload, headers=headers, timeout=30)
     if resp.status_code != 200:
         raise Exception(f"Cobalt API error: {resp.status_code}")
     data = resp.json()
     if data.get("status") == "redirect" and data.get("url"):
         dl_url = data["url"]
-    elif data.get("status") == "success" and data.get("urls"):
-        urls = data["urls"]
-        dl_url = urls[0].get("url") if isinstance(urls, list) else urls.get("url")
+    elif data.get("status") == "tunnel" and data.get("url"):
+        dl_url = data["url"]
     elif data.get("status") == "picker":
-        items = data.get("items", [])
+        items = data.get("picker", [])
         dl_url = None
         for item in items:
-            if item.get("type") in ("video", "audio"):
+            if item.get("type") == "video":
                 dl_url = item.get("url"); break
         if not dl_url and items:
             dl_url = items[0].get("url", "")
+    elif data.get("status") == "error":
+        raise Exception(f"Cobalt error: {data.get('error', {}).get('code', 'unknown')}")
     else:
         raise Exception(f"Cobalt: unknown status {data.get('status')}")
     if not dl_url:
@@ -73,11 +73,21 @@ def download_with_cobalt(url, output_path, mobile_ios=False):
 
 def download_with_ytdlp(url, output_path, mobile_ios=False):
     ua = random.choice(YTDLP_MOBILE_HEADERS) if mobile_ios else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
-    cmd = ["yt-dlp", "-f", "best[height<=720][ext=mp4]/best[ext=mp4]/best", "-o", output_path, "--no-playlist", "--user-agent", ua, url]
+    cmd = ["yt-dlp", "-f", "best[height<=720][ext=mp4]/best[ext=mp4]/best", "-o", output_path, "--no-playlist", "--user-agent", ua]
+    if os.path.exists("cookies.txt"):
+        cmd += ["--cookies", "cookies.txt"]
+    cmd.append(url)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:
         raise Exception(f"yt-dlp failed: {result.stderr}")
     return output_path
+
+def _yt_dlp_search(args):
+    cmd = ["yt-dlp"]
+    if os.path.exists("cookies.txt"):
+        cmd += ["--cookies", "cookies.txt"]
+    cmd += args
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
 def download_movie_clip(video_url=None, output_path="downloads/raw_clip.mp4"):
     os.makedirs("downloads", exist_ok=True)
@@ -89,7 +99,7 @@ def download_movie_clip(video_url=None, output_path="downloads/raw_clip.mp4"):
         try:
             search_q = pick_youtube_query()
             print(f">>> Searching for clip: {search_q}")
-            result = subprocess.run(["yt-dlp", "--flat-playlist", "--get-title", "--no-playlist", "ytsearch5:" + search_q], capture_output=True, text=True, timeout=30)
+            result = _yt_dlp_search(["--flat-playlist", "--get-title", "--no-playlist", "ytsearch5:" + search_q])
             videos = [l for l in result.stdout.splitlines() if l.strip()]
             if not videos: raise Exception("No search results")
             random.shuffle(videos)
@@ -100,15 +110,15 @@ def download_movie_clip(video_url=None, output_path="downloads/raw_clip.mp4"):
                     return download_with_cobalt(vid, output_path, mobile_ios=True)
         except Exception as e:
             print(f">>> Cobalt attempt {i+1} failed: {e}")
-    print(">>> Trying iOS bypass engine...")
+    print(">>> Trying yt-dlp direct download...")
     for i in range(3):
         try:
             search_q = pick_youtube_query()
-            result = subprocess.run(["yt-dlp", "--flat-playlist", "--get-id", "ytsearch3:" + search_q], capture_output=True, text=True, timeout=30)
+            result = _yt_dlp_search(["--flat-playlist", "--get-id", "ytsearch3:" + search_q])
             ids = [l.strip() for l in result.stdout.splitlines() if l.strip()]
             if ids:
                 vid_url = f"https://www.youtube.com/watch?v={ids[0]}"
                 return download_with_ytdlp(vid_url, output_path, mobile_ios=True)
         except Exception as e:
-            print(f">>> iOS bypass attempt {i+1} failed: {e}")
+            print(f">>> yt-dlp attempt {i+1} failed: {e}")
     raise Exception("All download engines exhausted")

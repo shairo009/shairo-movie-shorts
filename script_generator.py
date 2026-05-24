@@ -6,8 +6,8 @@ import os, json, random, requests
 HISTORY_FILE = "scripts_history.txt"
 POOL_FILE = "scripts_pool.json"
 TTS_OUTPUT = "downloads/tts_voiceover.wav"
-ELEVENLABS_MODEL = "eleven_monolingual_v1"
-ELEVENLABS_VOICE_ID = "pFZIHFjlDpKmaMWlqHEC"
+ELEVENLABS_MODEL = "eleven_multilingual_v2"
+ELEVENLABS_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
 
 def load_pool():
     with open(POOL_FILE, "r", encoding="utf-8") as f:
