@@ -1,0 +1,76 @@
+name: Skill Bot — YouTube Link to Shorts
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'YouTube Video URL'
+        required: true
+        type: string
+      upload:
+        description: 'Upload to YouTube?'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  skill-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fontconfig fonts-dejavu-core
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Load Credentials
+        env:
+          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+          TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          echo "$CLIENT_SECRET_JSON" | base64 -d > client_secret.json
+          echo "$TOKEN_JSON" | base64 -d > token.json
+
+      - name: Run Skill Bot
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.upload }}" = "true" ]; then
+            python skill_bot.py --url "${{ github.event.inputs.video_url }}"
+          else
+            python skill_bot.py --url "${{ github.event.inputs.video_url }}" --no-upload
+          fi
+
+      - name: Upload Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-short-artifact
+          path: downloads/short_final.mp4
+          retention-days: 3
+
+      - name: Commit History
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add scripts_history.txt clips_history.txt 2>/dev/null || true
+          git commit -m "Update history [skip ci]" --allow-empty 2>/dev/null || true
+          git push origin main 2>/dev/null || true
