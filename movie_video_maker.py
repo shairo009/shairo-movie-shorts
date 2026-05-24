@@ -91,14 +91,15 @@ def mux_tts(video_path, tts_path, duration, output_path="downloads/final_video.m
         capture_output=True, text=True, timeout=60,
     )
 
-    # Mux
-    print(">>> Muxing TTS + video...")
+    # Mux — must transcode video from WebM VP8 to H.264 for MP4 container
+    print(">>> Muxing TTS + video (transcoding VP8 → H.264)...")
     result = subprocess.run(
         ["ffmpeg", "-y", "-i", video_path, "-i", tts_trimmed,
          "-map", "0:v", "-map", "1:a",
-         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+         "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+         "-c:a", "aac", "-b:a", "192k",
          "-shortest", output_path],
-        capture_output=True, text=True, timeout=120,
+        capture_output=True, text=True, timeout=300,
     )
 
     if result.returncode != 0:
