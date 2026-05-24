@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Movie Shorts UI</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;600;700&display=swap');
+
+    :root {
+      --theme-color: {{THEME_COLOR}};
+      --glow-color: {{GLOW_COLOR}};
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      background: #0a0a0f;
+      font-family: 'Inter', Arial, sans-serif;
+      position: relative;
+    }
+
+    /* Cinematic gradient background */
+    .bg-layer {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 30%, var(--glow-color) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 20% 80%, rgba(0,0,0,0.8) 0%, transparent 60%),
+        linear-gradient(180deg, #0a0a0f 0%, #111118 50%, #0a0a0f 100%);
+      opacity: 0.7;
+    }
+
+    /* Floating particles */
+    .particles {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    .particle {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--theme-color);
+      opacity: 0;
+      animation: floatUp linear infinite;
+    }
+    @keyframes floatUp {
+      0%   { transform: translateY(100%) scale(0); opacity: 0; }
+      10%  { opacity: 0.6; }
+      90%  { opacity: 0.3; }
+      100% { transform: translateY(-100vh) scale(1); opacity: 0; }
+    }
+
+    /* Film grain overlay */
+    .grain {
+      position: absolute;
+      inset: 0;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    /* Letterbox bars */
+    .letterbox-top, .letterbox-bottom {
+      position: absolute;
+      left: 0; right: 0;
+      height: 100px;
+      background: #000;
+      z-index: 10;
+    }
+    .letterbox-top { top: 0; }
+    .letterbox-bottom { bottom: 0; }
+
+    /* Tag label */
+    .tag-label {
+      position: absolute;
+      top: 180px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: var(--theme-color);
+      opacity: 0;
+      animation: fadeInDown 1s ease 0.5s forwards;
+      z-index: 5;
+      text-shadow: 0 0 30px var(--theme-color);
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateX(-50%) translateY(-30px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* Title */
+    .title {
+      position: absolute;
+      top: 260px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      text-align: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 72px;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1.1;
+      opacity: 0;
+      animation: scaleIn 1.2s ease 0.8s forwards;
+      z-index: 5;
+      text-shadow: 0 4px 40px rgba(0,0,0,0.8);
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: translateX(-50%) scale(0.7); }
+      to   { opacity: 1; transform: translateX(-50%) scale(1); }
+    }
+
+    /* Divider line */
+    .divider {
+      position: absolute;
+      top: 430px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--theme-color), transparent);
+      animation: expandLine 1s ease 1.2s forwards;
+      z-index: 5;
+    }
+    @keyframes expandLine {
+      to { width: 600px; }
+    }
+
+    /* Script text area */
+    .script-container {
+      position: absolute;
+      top: 500px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 880px;
+      z-index: 5;
+    }
+
+    .script-text {
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 52px;
+      font-weight: 600;
+      color: #e8e8f0;
+      line-height: 1.5;
+      text-align: center;
+      opacity: 0;
+      animation: textFadeIn 1.5s ease 1.5s forwards;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.6);
+    }
+    @keyframes textFadeIn {
+      from { opacity: 0; transform: translateY(40px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Glow orb behind text */
+    .text-glow {
+      position: absolute;
+      top: 600px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--glow-color) 0%, transparent 70%);
+      opacity: 0.15;
+      filter: blur(80px);
+      z-index: 2;
+    }
+
+    /* Bottom info */
+    .bottom-info {
+      position: absolute;
+      bottom: 160px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 5;
+      opacity: 0;
+      animation: fadeInUp 1s ease 2s forwards;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(30px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .bottom-info .label {
+      font-size: 18px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.3);
+      margin-bottom: 12px;
+    }
+    .bottom-info .brand {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--theme-color);
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px var(--theme-color);
+    }
+
+    /* Progress bar at bottom */
+    .progress-track {
+      position: absolute;
+      bottom: 110px;
+      left: 80px;
+      right: 80px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      z-index: 10;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--theme-color), #fff);
+      border-radius: 2px;
+      transition: width 0.1s linear;
+    }
+
+    /* Corner decorations */
+    .corner {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-color: var(--theme-color);
+      border-style: solid;
+      border-width: 0;
+      opacity: 0.3;
+      z-index: 10;
+    }
+    .corner.tl { top: 120px; left: 40px; border-top-width: 2px; border-left-width: 2px; }
+    .corner.tr { top: 120px; right: 40px; border-top-width: 2px; border-right-width: 2px; }
+    .corner.bl { bottom: 120px; left: 40px; border-bottom-width: 2px; border-left-width: 2px; }
+    .corner.br { bottom: 120px; right: 40px; border-bottom-width: 2px; border-right-width: 2px; }
+  </style>
+</head>
+<body>
+
+  <div class="bg-layer"></div>
+  <div class="particles" id="particles"></div>
+  <div class="grain"></div>
+
+  <div class="letterbox-top"></div>
+  <div class="letterbox-bottom"></div>
+
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <div class="tag-label">{{TAG_LABEL}}</div>
+  <div class="title">{{MOVIE_TITLE}}</div>
+  <div class="divider"></div>
+
+  <div class="text-glow"></div>
+
+  <div class="script-container">
+    <p class="script-text">{{SCRIPT_TEXT}}</p>
+  </div>
+
+  <div class="bottom-info">
+    <div class="label">Movie Shorts</div>
+    <div class="brand">{{BRAND_TEXT}}</div>
+  </div>
+
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+
+  <script>
+    const DURATION = {{DURATION}};
+
+    // Create floating particles
+    const container = document.getElementById('particles');
+    for (let i = 0; i < 30; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const size = Math.random() * 6 + 2;
+      p.style.width = size + 'px';
+      p.style.height = size + 'px';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDuration = (Math.random() * 8 + 6) + 's';
+      p.style.animationDelay = (Math.random() * 10) + 's';
+      container.appendChild(p);
+    }
+
+    // Progress bar animation
+    const fill = document.getElementById('progressFill');
+    const start = performance.now();
+    function updateProgress(now) {
+      const elapsed = (now - start) / 1000;
+      const pct = Math.min(100, (elapsed / DURATION) * 100);
+      fill.style.width = pct + '%';
+      if (elapsed < DURATION) requestAnimationFrame(updateProgress);
+    }
+    requestAnimationFrame(updateProgress);
+  </script>
+</body>
+</html>

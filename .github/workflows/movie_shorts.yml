@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
-    inputs:
-      video_url:
-        description: 'Specific YouTube video URL (optional)'
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -30,13 +25,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fontconfig fonts-dejavu-core
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "$HOME/.deno/bin" >> $GITHUB_PATH
 
       - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Install Playwright Browsers
+        run: |
+          playwright install chromium --with-deps
 
       - name: Load Credentials from Secrets
         env:
@@ -51,12 +48,7 @@ jobs:
       - name: Run Movie Shorts Bot
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-        run: |
-          if [ -n "${{ github.event.inputs.video_url }}" ]; then
-            python main.py --url "${{ github.event.inputs.video_url }}"
-          else
-            python main.py
-          fi
+        run: python main.py
 
       - name: Upload Artifact
         if: always()
@@ -70,7 +62,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add scripts_history.txt clips_history.txt 2>/dev/null || true
+          git add scripts_history.txt 2>/dev/null || true
           git commit -m "Update history [skip ci]" --allow-empty 2>/dev/null || true
           git push origin main 2>/dev/null || true
 
