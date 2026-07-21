@@ -1,0 +1,73 @@
+name: Daily 5 Shorts
+
+on:
+  schedule:
+    # Every 4 hours, 5 times a day (approximate)
+    - cron: '0 2,6,10,14,18 * * *'
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Number of shorts to generate'
+        required: true
+        default: '5'
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      - name: Install Python deps
+        run: |
+          pip install playwright Pillow numpy google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+          playwright install chromium
+
+      - name: Generate unique web pages
+        run: |
+          COUNT=${{ github.event.inputs.count || '5' }}
+          python generator.py $COUNT
+          echo "Pages generated:"
+          ls -la output/
+
+      - name: Record videos
+        run: |
+          for html in output/*.html; do
+            base=$(basename "$html" .html)
+            echo "Recording $base..."
+            python record.py "$html" "output/${base}.mp4" 15 30
+          done
+
+      - name: Upload to YouTube
+        env:
+          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+          TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
+        run: |
+          echo "$CLIENT_SECRET_JSON" > client_secret.json
+          echo "$TOKEN_JSON" > token.json
+          for mp4 in output/*.mp4; do
+            base=$(basename "$mp4" .mp4)
+            seed=$(echo "$base" | sed 's/webart_//')
+            python upload.py "$mp4" "Template-$seed" "$seed" "Auto"
+          done
+
+      - name: Upload pages to GitHub Pages
+        run: |
+          mkdir -p pages
+          cp output/*.html pages/
+          git config user.name "shairo-bot"
+          git config user.email "bot@shairo.dev"
+          git add pages/
+          git commit -m "Add generated pages [skip ci]" || echo "No new pages"
+          git push
